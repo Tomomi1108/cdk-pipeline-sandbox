@@ -1,0 +1,19 @@
+{
+  "name": "cdk-pipeline-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "aws-cdk": "^2",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2",
+    "constructs": "^10"
+  }
+}

@@ -1,0 +1,134 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+  CDK_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Build Once: cdk synth で Cloud Assembly を生成し、
+  # GitHub Actions Artifact としてアップロードする。
+  # 以降の deploy ジョブは再 synth せずこの成果物を使う。
+  # ─────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: infra
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK Synth (Build Once)
+        run: npx cdk synth
+        working-directory: infra
+
+      - name: Set artifact name
+        id: set-artifact-name
+        run: echo "name=cdk-out-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      # cdk.out/ ディレクトリ全体をアーティファクトとして保存
+      # これが "Build Once, Deploy Many" の核心
+      - name: Upload Cloud Assembly
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: infra/cdk.out/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # Deploy Many (dev): build ジョブの成果物をそのまま使ってデプロイ
+  # --app cdk.out/ で再 synth をスキップしている
+  # ─────────────────────────────────────────────
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: beta  # GitHub Environment "beta" に紐付け
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: infra
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Cloud Assembly
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: infra/cdk.out/
+
+      - name: Deploy dev stack
+        run: npx cdk deploy dev-SandboxStack --app cdk.out/ --require-approval never
+        working-directory: infra
+
+  # ─────────────────────────────────────────────
+  # Deploy Many (prod): environment: production により
+  # GitHub の手動承認ゲートが発動する（public repo 必須）
+  # ─────────────────────────────────────────────
+  deploy-prod:
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: production  # GitHub Environment "production" に Required Reviewers を設定
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: infra
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.IAM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Cloud Assembly
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: infra/cdk.out/
+
+      - name: Deploy prod stack
+        run: npx cdk deploy prod-SandboxStack --app cdk.out/ --require-approval never
+        working-directory: infra
