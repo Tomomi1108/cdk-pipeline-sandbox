@@ -22,6 +22,7 @@ export class SandboxStack extends cdk.Stack {
       autoDeleteObjects: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      versioned: true,
     });
 
     // SSM Parameter（検証用。環境ごとに異なるパスに配置）
