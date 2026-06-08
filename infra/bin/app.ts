@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SandboxStack } from '../lib/sandbox-stack';
+import { LookupStack } from '../lib/lookup-stack';
 
 const app = new cdk.App();
 
@@ -14,3 +15,4 @@ const env = {
 // マルチアカウント構成を、スタック名プレフィックスで擬似的に再現している
 new SandboxStack(app, 'dev-SandboxStack', { env, envName: 'dev' });
 new SandboxStack(app, 'prod-SandboxStack', { env, envName: 'prod' });
+new LookupStack(app, 'dev-LookupStack', { env });
