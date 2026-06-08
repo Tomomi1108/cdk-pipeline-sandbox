@@ -12,7 +12,8 @@ export class SandboxStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: SandboxStackProps) {
     super(scope, id, props);
 
-    const config = getConfig(this.node, props.envName);
+    const envName = (process.env.ENV_NAME ?? props.envName) as EnvName;
+    const config = getConfig(this.node, envName);
 
     // S3バケット（検証用ダミーリソース）
     // removalPolicy: DESTROY + autoDeleteObjects で cdk destroy 時に完全削除できる
