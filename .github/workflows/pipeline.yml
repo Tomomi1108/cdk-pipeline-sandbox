@@ -95,6 +95,9 @@ jobs:
       - name: Deploy dev stack
         run: npx cdk deploy dev-SandboxStack --app cdk.out/ --require-approval never
         working-directory: infra
+        env:
+          ENV_NAME: ${{ vars.ENV_NAME }}
+
 
   # ─────────────────────────────────────────────
   # Deploy Many (prod): environment: production により
@@ -132,3 +135,5 @@ jobs:
       - name: Deploy prod stack
         run: npx cdk deploy prod-SandboxStack --app cdk.out/ --require-approval never
         working-directory: infra
+        env:
+          ENV_NAME: ${{ vars.ENV_NAME }}
